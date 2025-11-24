@@ -205,3 +205,35 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================
+# CUSTOM ADDITIONS FOR GSOC BUDDY AI PROJECT
+# ============================================
+
+# Environment variables (NEVER commit API keys!)
+.env
+
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Streamlit cache
+.streamlit/
+
+# Data files (can be large)
+data/*.json
+data/*.csv
+
+# VS Code settings
+.vscode/
+
+# Mac files
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
