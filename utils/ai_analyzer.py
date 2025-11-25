@@ -1,333 +1,215 @@
+#!/usr/bin/env python3
 """
-AI Analyzer Module for GSOC Buddy AI.
-
-This module uses Google Gemini AI to analyze GitHub issues and extract:
-- Difficulty level
-- Required programming skills
-- Estimated completion time
-- Suitability for GSOC beginners
-- Learning resources needed
+AI Analyzer Module for GitHub Issue Classification
+Uses Google Gemini 2.5 Flash AI to analyze and classify GitHub issues
 """
 
 import os
-from typing import Dict, Any, Optional, List
-from dotenv import load_dotenv
+from typing import Dict, Optional, List
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 
-# Load environment variables
-load_dotenv()
+class AIAnalyzer:
+    """Handles AI-powered analysis of GitHub issues using Gemini 2.5 Flash"""
 
-# Configure Gemini AI
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-
-class IssueAnalyzer:
-    """Analyzes GitHub issues using AI to extract relevant information."""
-
-    def __init__(self, model_name: str = "gemini-pro") -> None:
+    def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize the Issue Analyzer.
+        Initialize AI Analyzer with Gemini API
 
         Args:
-            model_name: Name of the Gemini model to use
+            api_key: Gemini API key (if None, reads from GEMINI_API_KEY env var)
         """
-        if not GEMINI_API_KEY:
-            raise ValueError(
-                "GEMINI_API_KEY not found. "
-                "Please add it to your .env file."
-            )
+        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
 
-        self.model = genai.GenerativeModel(model_name)
-        self.analysis_cache: Dict[str, Dict[str, Any]] = {}
+        # Configure Gemini
+        genai.configure(api_key=self.api_key)
 
-    def analyze_issue(
-        self,
-        title: str,
-        description: str,
-        labels: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        # ✅ Using Gemini 2.5 Flash (Latest Stable - June 2025)
+        # Supports up to 1 million tokens
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        print("✅ AI Analyzer initialized with gemini-2.5-flash")
+
+    def analyze_issue(self, title: str, description: str, labels: List[str]) -> Dict:
         """
-        Analyze a GitHub issue using AI.
+        Analyze a GitHub issue and extract relevant information
 
         Args:
             title: Issue title
             description: Issue description/body
-            labels: List of issue labels (optional)
+            labels: List of issue labels
 
         Returns:
-            Dictionary containing analysis results
+            Dictionary with analysis results
         """
-        # Create cache key
-        cache_key = f"{title}:{description[:100]}"
-
-        # Check cache first
-        if cache_key in self.analysis_cache:
-            return self.analysis_cache[cache_key]
-
-        # Prepare the prompt
         prompt = self._create_analysis_prompt(title, description, labels)
 
         try:
-            # Get AI response
+            print("🤖 Sending request to Gemini 2.5 Flash AI...")
             response = self.model.generate_content(prompt)
+            print("✅ Response received from Gemini 2.5!")
+            return self._parse_response(response.text)
 
-            # Parse the response
-            analysis = self._parse_ai_response(response.text)
-
-            # Add metadata
-            analysis["original_title"] = title
-            analysis["original_description"] = description[:200]
-            analysis["labels"] = labels or []
-
-            # Cache the result
-            self.analysis_cache[cache_key] = analysis
-
-            return analysis
-
-        except (ValueError, AttributeError, TypeError) as error:
-            # Return error analysis
+        except google_exceptions.NotFound as e:
             return {
-                "error": str(error),
-                "difficulty": "unknown",
-                "skills_required": [],
-                "good_for_beginners": False,
-                "original_title": title
+                'error': 'Model not found',
+                'message': str(e),
+                'solution': 'Verify gemini-2.5-flash is available in your region'
+            }
+        except google_exceptions.InvalidArgument as e:
+            return {
+                'error': 'Invalid API request',
+                'message': str(e)
+            }
+        except google_exceptions.PermissionDenied as e:
+            return {
+                'error': 'Permission denied',
+                'message': 'Check your API key permissions',
+                'details': str(e)
+            }
+        except google_exceptions.ResourceExhausted as e:
+            return {
+                'error': 'API quota exceeded',
+                'message': 'Rate limit reached. Wait a moment and try again.',
+                'details': str(e)
+            }
+        except google_exceptions.GoogleAPIError as e:
+            return {
+                'error': 'API Error',
+                'message': str(e)
             }
 
-    def _create_analysis_prompt(
-        self,
-        title: str,
-        description: str,
-        labels: Optional[List[str]]
-    ) -> str:
-        """
-        Create a structured prompt for AI analysis.
+    def _create_analysis_prompt(self, title: str, description: str, labels: List[str]) -> str:
+        """Create structured prompt for Gemini 2.5 Flash AI"""
+        labels_str = ', '.join(labels) if labels else 'No labels'
 
-        Args:
-            title: Issue title
-            description: Issue description
-            labels: Issue labels
+        return f"""
+You are an expert at analyzing GitHub issues for open-source projects, specifically for Google Summer of Code (GSOC) programs.
 
-        Returns:
-            Formatted prompt string
-        """
-        label_text = f"Labels: {', '.join(labels)}" if labels else ""
+Analyze this GitHub issue and provide a structured assessment:
 
-        prompt = f"""
-Analyze this GitHub issue and provide structured information:
+**Issue Title:** {title}
 
-**Title:** {title}
+**Description:**
+{description}
 
-**Description:** {description}
+**Labels:** {labels_str}
 
-{label_text}
+Provide a detailed analysis with the following information:
 
-Please provide analysis in the following format:
+1. **Difficulty Level**: Classify as Beginner, Intermediate, or Advanced
+2. **Required Skills**: List all technical skills needed (comma-separated)
+3. **Estimated Time**: Provide time in hours (just the number, e.g., "3" or "8-10")
+4. **GSOC Friendly**: Answer Yes or No with brief justification
+5. **Category**: Classify as bug, feature, documentation, refactoring, enhancement, or testing
+6. **Priority**: Rate as Low, Medium, or High
+7. **Reasoning**: Provide a concise explanation (1-2 sentences)
 
-DIFFICULTY: [beginner/intermediate/advanced]
-SKILLS: [comma-separated list of required skills/technologies]
-TIME_ESTIMATE: [estimated hours to complete]
-GOOD_FOR_GSOC: [yes/no]
-CONCEPTS: [key programming concepts needed]
-EXPLANATION: [brief explanation of why this difficulty level]
-
-Be specific and technical. Focus on programming languages and frameworks.
+Format your response EXACTLY as shown below:
+DIFFICULTY: <Beginner|Intermediate|Advanced>
+SKILLS: <skill1>, <skill2>, <skill3>
+TIME: <number or range>
+GSOC_FRIENDLY: <Yes|No>
+CATEGORY: <bug|feature|documentation|refactoring|enhancement|testing>
+PRIORITY: <Low|Medium|High>
+REASONING: <brief explanation>
 """
-        return prompt
 
-    def _parse_ai_response(self, response_text: str) -> Dict[str, Any]:
-        """
-        Parse AI response into structured data.
-
-        Args:
-            response_text: Raw AI response
-
-        Returns:
-            Dictionary with parsed data
-        """
-        # Initialize result
-        result: Dict[str, Any] = {
-            "difficulty": "unknown",
-            "skills_required": [],
-            "estimated_hours": "unknown",
-            "good_for_beginners": False,
-            "concepts_needed": [],
-            "explanation": ""
+    def _parse_response(self, response_text: str) -> Dict:
+        """Parse AI response into structured data"""
+        result = {
+            'difficulty': 'Unknown',
+            'skills': [],
+            'estimated_time': 'Unknown',
+            'gsoc_friendly': 'Unknown',
+            'category': 'Unknown',
+            'priority': 'Unknown',
+            'reasoning': '',
+            'raw_response': response_text
         }
 
         try:
-            # Parse each line
             lines = response_text.strip().split('\n')
 
             for line in lines:
-                line = line.strip()
+                # Skip empty lines
+                if not line.strip():
+                    continue
 
-                if line.startswith("DIFFICULTY:"):
-                    difficulty = line.split(":", 1)[1].strip().lower()
-                    result["difficulty"] = difficulty
-                    result["good_for_beginners"] = difficulty == "beginner"
+                # Look for key-value pairs
+                if ':' not in line:
+                    continue
 
-                elif line.startswith("SKILLS:"):
-                    skills_text = line.split(":", 1)[1].strip()
-                    skills = [
-                        s.strip()
-                        for s in skills_text.split(",")
-                        if s.strip()
-                    ]
-                    result["skills_required"] = skills
+                key, value = line.split(':', 1)
+                key = key.strip().upper()
+                value = value.strip()
 
-                elif line.startswith("TIME_ESTIMATE:"):
-                    time_est = line.split(":", 1)[1].strip()
-                    result["estimated_hours"] = time_est
+                # Map to result dictionary
+                if 'DIFFICULTY' in key:
+                    result['difficulty'] = value
+                elif 'SKILLS' in key:
+                    # Split by comma and clean up
+                    result['skills'] = [s.strip() for s in value.split(',') if s.strip()]
+                elif 'TIME' in key:
+                    result['estimated_time'] = value
+                elif 'GSOC' in key or 'FRIENDLY' in key:
+                    result['gsoc_friendly'] = value
+                elif 'CATEGORY' in key:
+                    result['category'] = value
+                elif 'PRIORITY' in key:
+                    result['priority'] = value
+                elif 'REASONING' in key or 'REASON' in key:
+                    result['reasoning'] = value
 
-                elif line.startswith("GOOD_FOR_GSOC:"):
-                    gsoc_suitable = line.split(":", 1)[1].strip().lower()
-                    result["good_for_gsoc"] = gsoc_suitable == "yes"
-
-                elif line.startswith("CONCEPTS:"):
-                    concepts_text = line.split(":", 1)[1].strip()
-                    concepts = [
-                        c.strip()
-                        for c in concepts_text.split(",")
-                        if c.strip()
-                    ]
-                    result["concepts_needed"] = concepts
-
-                elif line.startswith("EXPLANATION:"):
-                    explanation = line.split(":", 1)[1].strip()
-                    result["explanation"] = explanation
-
-        except (ValueError, IndexError, AttributeError) as error:
-            result["parsing_error"] = str(error)
+        except ValueError as e:
+            result['parse_error'] = f"Failed to parse: {str(e)}"
 
         return result
 
-    def calculate_match_score(
-        self,
-        issue_analysis: Dict[str, Any],
-        user_skills: List[str],
-        user_level: str
-    ) -> Dict[str, Any]:
+    def batch_analyze(self, issues: List[Dict]) -> List[Dict]:
         """
-        Calculate how well an issue matches a user's profile.
+        Analyze multiple issues in batch
 
         Args:
-            issue_analysis: Analysis result from analyze_issue()
-            user_skills: List of user's programming skills
-            user_level: User's skill level (beginner/intermediate/advanced)
+            issues: List of dictionaries with 'title', 'description', 'labels'
 
         Returns:
-            Dictionary with match score and explanation
+            List of analysis results
         """
-        # Normalize inputs
-        user_skills_lower = [s.lower() for s in user_skills]
-        required_skills = issue_analysis.get("skills_required", [])
-        required_skills_lower = [s.lower() for s in required_skills]
+        results = []
+        total = len(issues)
 
-        # Calculate skill match
-        if not required_skills_lower:
-            skill_match = 0.5  # Unknown requirements = 50%
-        else:
-            matching_skills = sum(
-                1 for skill in required_skills_lower
-                if skill in user_skills_lower
-            )
-            skill_match = matching_skills / len(required_skills_lower)
+        print(f"\n🔄 Starting batch analysis of {total} issues...")
 
-        # Calculate level match
-        issue_difficulty = issue_analysis.get("difficulty", "unknown")
-        level_scores = {
-            ("beginner", "beginner"): 1.0,
-            ("beginner", "intermediate"): 0.8,
-            ("beginner", "advanced"): 0.6,
-            ("intermediate", "beginner"): 0.5,
-            ("intermediate", "intermediate"): 1.0,
-            ("intermediate", "advanced"): 0.8,
-            ("advanced", "beginner"): 0.3,
-            ("advanced", "intermediate"): 0.6,
-            ("advanced", "advanced"): 1.0,
-        }
-        level_match = level_scores.get(
-            (issue_difficulty, user_level.lower()),
-            0.5
-        )
+        for idx, issue in enumerate(issues, 1):
+            print(f"\n{'='*60}")
+            print(f"📊 Analyzing issue {idx}/{total}")
+            print(f"{'='*60}")
 
-        # Calculate overall match (70% skills, 30% level)
-        overall_match = (skill_match * 0.7) + (level_match * 0.3)
-
-        # Generate explanation
-        matching_skills_list = [
-            skill for skill in required_skills
-            if skill.lower() in user_skills_lower
-        ]
-        missing_skills_list = [
-            skill for skill in required_skills
-            if skill.lower() not in user_skills_lower
-        ]
-
-        explanation_parts = []
-
-        if matching_skills_list:
-            explanation_parts.append(
-                f"✅ You know: {', '.join(matching_skills_list)}"
+            analysis = self.analyze_issue(
+                issue.get('title', 'No title'),
+                issue.get('description', 'No description'),
+                issue.get('labels', [])
             )
 
-        if missing_skills_list:
-            explanation_parts.append(
-                f"📚 You need to learn: {', '.join(missing_skills_list)}"
-            )
+            # Add metadata
+            analysis['issue_number'] = idx
+            analysis['issue_title'] = issue.get('title')
+            results.append(analysis)
 
-        if issue_difficulty != user_level.lower():
-            explanation_parts.append(
-                f"⚠️ Issue is {issue_difficulty}, "
-                f"you're {user_level.lower()}"
-            )
-
-        explanation = " | ".join(explanation_parts)
-
-        return {
-            "match_percentage": round(overall_match * 100),
-            "skill_match": round(skill_match * 100),
-            "level_match": round(level_match * 100),
-            "explanation": explanation,
-            "matching_skills": matching_skills_list,
-            "missing_skills": missing_skills_list,
-            "recommendation": self._get_recommendation(overall_match)
-        }
-
-    def _get_recommendation(self, match_score: float) -> str:
-        """
-        Get recommendation based on match score.
-
-        Args:
-            match_score: Match score (0.0 to 1.0)
-
-        Returns:
-            Recommendation string
-        """
-        if match_score >= 0.8:
-            return "🟢 Excellent match! Start working on this."
-        elif match_score >= 0.6:
-            return "🟡 Good match. Minor learning needed."
-        elif match_score >= 0.4:
-            return "🟠 Moderate match. Some learning required."
-        else:
-            return "🔴 Low match. Better to learn more first."
+        print(f"\n✅ Batch analysis complete! Processed {total} issues.")
+        return results
 
 
-def quick_analyze(title: str, description: str) -> Dict[str, Any]:
-    """
-    Quick analysis function for simple use cases.
-
-    Args:
-        title: Issue title
-        description: Issue description
-
-    Returns:
-        Analysis dictionary
-    """
-    analyzer = IssueAnalyzer()
-    return analyzer.analyze_issue(title, description)
+# For testing the module directly
+if __name__ == "__main__":
+    print("="*60)
+    print("🤖 AI Analyzer Module - Gemini 2.5 Flash")
+    print("="*60)
+    print("✅ Module loaded successfully")
+    print("📌 Model: gemini-2.5-flash")
+    print("📅 Released: June 2025")
+    print("🚀 Context Window: Up to 1 million tokens")
+    print("="*60)

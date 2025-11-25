@@ -1,0 +1,18 @@
+[MASTER]
+# Use the virtual environment's Python
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+# Disable specific warnings
+disable=
+    too-many-statements,
+    import-error,
+    no-name-in-module
+
+[DESIGN]
+# Increase max statements to 100
+max-statements=100
+
+[TYPECHECK]
+# Ignore import errors for these modules
+ignored-modules=google.generativeai,google.api_core
