@@ -59,7 +59,7 @@ def test_gemini_api() -> None:
         print("=" * 60)
         print("\n🎉 Your Gemini API is working perfectly!")
 
-    except Exception as error:
+    except (ValueError, RuntimeError) as error:
         print(f"\n❌ ERROR: {str(error)}")
         print("\nPossible issues:")
         print("1. Invalid API key")
