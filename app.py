@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 import streamlit as st
 import requests
-
+from utils.ai_analyzer import AIAnalyzer
 
 # Constants
 APP_TITLE = "GSOC Buddy AI"
@@ -210,12 +210,36 @@ def fetch_github_issues(
         return None
 
 
-def render_issue(issue: Dict[str, Any]) -> None:
+def analyze_issue_with_ai(issue: Dict[str, Any], analyzer: AIAnalyzer) -> Optional[Dict]:
+    """
+    Analyze a GitHub issue using AIAnalyzer.
+
+    Args:
+        issue: Dictionary containing issue data from GitHub API
+        analyzer: AIAnalyzer instance
+
+    Returns:
+        Analysis result dictionary or None if error occurs
+    """
+    try:
+        title = issue.get('title', '')
+        body = issue.get('body', '')
+        labels = [label['name'] for label in issue.get('labels', [])]
+
+        analysis = analyzer.analyze_issue(title, body, labels)
+        return analysis
+    except (ValueError, KeyError, AttributeError) as error:
+        st.warning(f"⚠️ Could not analyze issue with AI: {str(error)}")
+        return None
+
+
+def render_issue(issue: Dict[str, Any], analyzer: Optional[AIAnalyzer] = None) -> None:
     """
     Render a single GitHub issue in an expander.
 
     Args:
         issue: Dictionary containing issue data from GitHub API
+        analyzer: Optional AIAnalyzer instance for AI-powered analysis
     """
     title = f"#{issue['number']} - {issue['title']}"
 
@@ -238,6 +262,15 @@ def render_issue(issue: Dict[str, Any]) -> None:
             st.write(display_text)
         else:
             st.write("No description provided.")
+
+        # AI Analysis (if analyzer available)
+        if analyzer:
+            if st.button("🤖 Analyze with AI", key=f"analyze_{issue['number']}"):
+                with st.spinner("Analyzing issue with AI..."):
+                    analysis = analyze_issue_with_ai(issue, analyzer)
+                    if analysis:
+                        st.success("✅ AI Analysis Complete")
+                        st.json(analysis)
 
 
 def render_github_demo() -> None:
@@ -268,8 +301,16 @@ def render_github_demo() -> None:
                     st.success(
                         f"✅ Found {len(issues)} beginner-friendly issues!"
                     )
+
+                    # Initialize AI Analyzer for issue analysis
+                    try:
+                        analyzer = AIAnalyzer()
+                    except ValueError:
+                        st.warning("⚠️ GEMINI_API_KEY not set. AI analysis unavailable.")
+                        analyzer = None
+
                     for issue in issues:
-                        render_issue(issue)
+                        render_issue(issue, analyzer)
                 else:
                     st.warning(
                         f"No 'good first issue' found in {demo_org}/{demo_org}. "
