@@ -35,9 +35,9 @@ def test_gemini_api() -> None:
 
     # Create model instance with UPDATED model name
     try:
-        # Use gemini-1.5-flash (free, fast, recommended)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        print("✅ Model initialized: gemini-1.5-flash")
+        # Use gemini-2.5-flash (free, fast, recommended)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        print("✅ Model initialized: gemini-2.5-flash")
     except (ValueError, TypeError) as error:
         print(f"❌ ERROR: Failed to create model: {error}")
         return
