@@ -274,13 +274,118 @@ def render_issue(issue: Dict[str, Any], analyzer: Optional[AIAnalyzer] = None) -
 
 
 def render_github_demo() -> None:
-    """Render the GitHub API demo section."""
+    """Render the GitHub API demo section with AI analysis."""
     st.divider()
-    st.markdown("## 🔬 Quick Demo: Fetching GitHub Issues")
+    st.markdown("## 🔬 AI-Powered Issue Analysis")
     st.markdown(
-        "Try fetching real issues from GSOC organizations! "
-        "This demonstrates the GitHub API integration we'll expand in Phase 2."
+        "Fetch GitHub issues and see AI-powered analysis! "
+        "The AI will determine difficulty, required skills, and match score."
     )
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        demo_org = st.text_input(
+            "GitHub Organization",
+            value=DEFAULT_ORG,
+            help="Try: omegaup, tensorflow, django, scikit-learn"
+        )
+
+    with col2:
+        max_issues = st.number_input(
+            "Max Issues",
+            min_value=1,
+            max_value=10,
+            value=3,
+            help="Number of issues to fetch"
+        )
+
+    # Get user preferences from session state (if available)
+    if 'user_skills' not in st.session_state:
+        st.session_state.user_skills = ["Python"]
+    if 'user_level' not in st.session_state:
+        st.session_state.user_level = "Beginner"
+
+    if st.button("🤖 Analyze Issues with AI"):
+        if not demo_org.strip():
+            st.warning("⚠️ Please enter an organization name.")
+            return
+
+        with st.spinner("Fetching issues and analyzing with AI..."):
+            # Fetch issues
+            issues = fetch_github_issues(demo_org, demo_org, max_issues=max_issues)
+
+            if issues is not None and len(issues) > 0:
+                st.success(f"✅ Found {len(issues)} issues! Analyzing with AI...")
+
+                # Initialize AI analyzer
+                try:
+                    analyzer = AIAnalyzer()
+
+                    # Analyze each issue
+                    for idx, issue in enumerate(issues, 1):
+                        st.markdown(f"### Issue #{idx}: {issue['title']}")
+
+                        # Create columns for issue details and AI analysis
+                        col_left, col_right = st.columns([1, 1])
+
+                        with col_left:
+                            st.markdown("**📋 Issue Details**")
+                            st.markdown(f"**Number:** #{issue['number']}")
+                            st.markdown(f"**URL:** [View on GitHub]({issue['html_url']})")
+                            st.markdown(f"**Created:** {issue['created_at'][:10]}")
+
+                            labels = [label['name'] for label in issue.get('labels', [])]
+                            if labels:
+                                st.markdown(f"**Labels:** {', '.join(labels[:3])}")
+
+                            # Show description
+                            body = issue.get('body', 'No description')
+                            if body:
+                                with st.expander("📝 Description"):
+                                    st.write(body[:300] + "..." if len(body) > 300 else body)
+
+                        with col_right:
+                            st.markdown("**🤖 AI Analysis**")
+
+                            # Analyze with AI
+                            with st.spinner("Analyzing..."):
+                                analysis = analyzer.analyze_issue(
+                                    title=issue['title'],
+                                    description=issue.get('body', ''),
+                                    labels=labels
+                                )
+
+                            # Display analysis
+                            difficulty = analysis.get('difficulty', 'unknown')
+                            difficulty_color = {
+                                'beginner': '🟢',
+                                'intermediate': '🟡',
+                                'advanced': '🔴'
+                            }.get(difficulty, '⚪')
+
+                            st.markdown(f"**Difficulty:** {difficulty_color} {difficulty.title()}")
+
+                            skills = analysis.get('skills_required', [])
+                            if skills:
+                                st.markdown(f"**Skills:** {', '.join(skills[:4])}")
+
+                            time_est = analysis.get('estimated_hours', 'Unknown')
+                            st.markdown(f"**Time:** {time_est}")
+
+                        st.divider()
+
+                except (ValueError, KeyError, AttributeError, RuntimeError) as error:
+                    st.error(f"AI Analysis Error: {str(error)}")
+                    st.info("Showing issues without AI analysis...")
+                    for issue in issues:
+                        render_issue(issue)
+
+            elif issues is not None:
+                st.warning(
+                    f"No 'good first issue' found in {demo_org}/{demo_org}. "
+                    "Try another organization!"
+                )
 
     demo_org = st.text_input(
         "Enter a GitHub organization (try: 'omegaup', 'tensorflow', 'django')",
