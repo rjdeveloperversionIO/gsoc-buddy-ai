@@ -13,39 +13,8 @@ from typing import List, Dict, Any, Optional
 import streamlit as st
 import requests
 from utils.ai_analyzer import AIAnalyzer
-import os
-import json
 
-def add_n8n_workflow_to_app():
-    # Define the path to the n8n workflow JSON file
-    workflow_path = "GSOC Issue Fetcher.json"
-    
-    # Check if the file exists
-    if not os.path.exists(workflow_path):
-        print(f"Error: Workflow file '{workflow_path}' not found.")
-        return False
-    
-    # Load the workflow JSON
-    try:
-        with open(workflow_path, 'r') as file:
-            workflow_data = json.load(file)
-        
-        # Here you can integrate the workflow data with your app
-        # For example, you might want to:
-        # - Store it in a database
-        # - Use it to configure routes
-        # - Parse it for specific nodes or actions
-        
-        print(f"Successfully loaded workflow: {workflow_data.get('name', 'Unnamed workflow')}")
-        return workflow_data
-    
-    except json.JSONDecodeError:
-        print(f"Error: '{workflow_path}' contains invalid JSON.")
-        return False
-    except Exception as e:
-        print(f"Error loading workflow: {str(e)}")
-        return False
-    import os
+import os
 
 def ensure_data_directory():
     # Create the data directory if it doesn't exist
