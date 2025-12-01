@@ -40,17 +40,7 @@ if __name__ == "__main__":
     
     # Your existing app code...
 
-# Example usage in your app.py
-if __name__ == "__main__":
-    # Your existing app code...
-    
-    # Add the n8n workflow
-    workflow = add_n8n_workflow_to_app()
-    
-    if workflow:
-        # Do something with the workflow data
-        print(f"Workflow has {len(workflow.get('nodes', []))} nodes")
-    
+
     # Continue with your app...
 
 # Constants
