@@ -1,0 +1,120 @@
+{
+  "name": "GSOC Issue Fetcher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -400,
+        -80
+      ],
+      "id": "a3614545-357b-4bb1-9aa3-8cd36977c4ba",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/omegaup/omegaup/issues",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "good first issue"
+            },
+            {
+              "name": "state",
+              "value": "open"
+            },
+            {
+              "name": "per_page",
+              "value": "5"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "GSOC-Buddy-AI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -400,
+        32
+      ],
+      "id": "174ae58f-7031-426a-b683-f35d3effc0ce",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process GitHub issues from HTTP request\nconst issues = $input.all();\nconst processedIssues = [];\n\nfor (const item of issues) {\n  const issue = item.json;\n  \n  processedIssues.push({\n    json: {\n      number: issue.number,\n      title: issue.title,\n      url: issue.html_url,\n      created_at: issue.created_at,\n      labels: issue.labels.map(l => l.name),\n      body_preview: issue.body ? issue.body.substring(0, 200) : 'No description',\n      fetched_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn processedIssues;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        144
+      ],
+      "id": "cf8bb5ea-1666-4fdb-ba21-699a7ccb16b7",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "availableInMCP": false,
+    "errorWorkflow": "pSdB3zlYYrvE1CQi"
+  },
+  "versionId": "e05d2d88-eb29-47b7-a652-6dcf766891f3",
+  "meta": {
+    "instanceId": "1191e702302b0e61281988a39e2d9c8b0fa26b0426762b27957252455eef72c0"
+  },
+  "id": "YUk854ceBKtnV9J1",
+  "tags": []
+}
