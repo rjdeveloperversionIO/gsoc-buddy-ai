@@ -61,8 +61,9 @@ if __name__ == "__main__":
     # Ensure data directory exists with .gitkeep
     data_dir = ensure_data_directory()
     
-    # Your existing app code...
-
+    # Run the Streamlit app 
+    st.run()
+    
 
     # Continue with your app...
 
