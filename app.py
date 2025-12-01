@@ -491,3 +491,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+GEMINI_API_KEY = os.getenv("AIzaSyDTKH2ZCX5ak9Wyc4Qe15ofcIRRJRID3a8")
