@@ -45,6 +45,31 @@ def add_n8n_workflow_to_app():
     except Exception as e:
         print(f"Error loading workflow: {str(e)}")
         return False
+    import os
+
+def ensure_data_directory():
+    # Create the data directory if it doesn't exist
+    data_dir = "data"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        print(f"Created directory: {data_dir}")
+    
+    # Create the .gitkeep file if it doesn't exist
+    gitkeep_path = os.path.join(data_dir, ".gitkeep")
+    if not os.path.exists(gitkeep_path):
+        with open(gitkeep_path, 'w') as f:
+            # .gitkeep is typically empty
+            pass
+        print(f"Created file: {gitkeep_path}")
+    
+    return data_dir
+
+# Add this to your app.py
+if __name__ == "__main__":
+    # Ensure data directory exists with .gitkeep
+    data_dir = ensure_data_directory()
+    
+    # Your existing app code...
 
 # Example usage in your app.py
 if __name__ == "__main__":
