@@ -13,7 +13,30 @@ from typing import List, Dict, Any, Optional
 import streamlit as st
 import requests
 from utils.ai_analyzer import AIAnalyzer
+import os
+from dotenv import load_dotenv
+from flask import Flask
 
+# Load environment variables from .env file
+load_dotenv()
+
+app = Flask(__name__)
+
+# Access your environment variables
+DATABASE_URL = os.getenv('DATABASE_URL')
+SECRET_KEY = os.getenv('SECRET_KEY')
+API_KEY = os.getenv('API_KEY')
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+# Example usage
+app.config['SECRET_KEY'] = SECRET_KEY
+
+@app.route('/')
+def home():
+    return "App is running!"
+
+if __name__ == '__main__':
+    app.run(debug=DEBUG)
 import os
 
 def ensure_data_directory():
@@ -491,4 +514,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-GEMINI_API_KEY = os.getenv("AIzaSyDTKH2ZCX5ak9Wyc4Qe15ofcIRRJRID3a8")
