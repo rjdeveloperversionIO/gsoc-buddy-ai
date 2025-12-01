@@ -16,6 +16,12 @@ from utils.ai_analyzer import AIAnalyzer
 import os
 from dotenv import load_dotenv
 from flask import Flask
+import streamlit as st
+st.set_page_config(page_title="My App", layout="wide")
+
+# THIS LINE FIXES THE LOADING ISSUE
+if "run" not in st.session_state:
+    st.session_state.run = True
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,7 +69,7 @@ if __name__ == "__main__":
     
     # Run the Streamlit app 
     st.run()
-    
+
 
     # Continue with your app...
 
